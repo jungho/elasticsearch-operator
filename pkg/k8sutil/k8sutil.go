@@ -69,10 +69,6 @@ const (
 	secretName = "es-certs"
 )
 
-var (
-	initContainerClusterVersionMin = []int{1, 8}
-)
-
 // K8sutil defines the kube object
 type K8sutil struct {
 	Config     *rest.Config
@@ -398,9 +394,9 @@ func (k *K8sutil) CreateDataNodeDeployment(deploymentType string, replicas *int3
 			FailureThreshold:    15,
 			Handler: v1.Handler{
 				HTTPGet: &v1.HTTPGetAction{
-					Port: intstr.FromInt(9200),
-					Path: clusterHealthURL,
-					Scheme: v1.URISchemeHTTPS,											
+					Port:   intstr.FromInt(9200),
+					Path:   clusterHealthURL,
+					Scheme: v1.URISchemeHTTPS,
 				},
 			},
 		}
@@ -432,9 +428,6 @@ func (k *K8sutil) CreateDataNodeDeployment(deploymentType string, replicas *int3
 							"role":      role,
 							"name":      statefulSetName,
 							"cluster":   clusterName,
-						},
-						Annotations: map[string]string{
-							"pod.beta.kubernetes.io/init-containers": "[ { \"name\": \"sysctl\", \"image\": \"busybox\", \"imagePullPolicy\": \"IfNotPresent\", \"command\": [\"sysctl\", \"-w\", \"vm.max_map_count=262144\"], \"securityContext\": { \"privileged\": true } }]",
 						},
 					},
 					Spec: v1.PodSpec{
@@ -526,7 +519,7 @@ func (k *K8sutil) CreateDataNodeDeployment(deploymentType string, replicas *int3
 									},
 								},
 								ReadinessProbe: probe,
-								LivenessProbe: probe,
+								LivenessProbe:  probe,
 								VolumeMounts: []v1.VolumeMount{
 									v1.VolumeMount{
 										Name:      "es-data",
@@ -586,23 +579,6 @@ func (k *K8sutil) CreateDataNodeDeployment(deploymentType string, replicas *int3
 					},
 				},
 			},
-		}
-
-		// Handle 1.8+ clusters with initContainers
-		if k.K8sVersion[0] >= initContainerClusterVersionMin[0] && k.K8sVersion[1] >= initContainerClusterVersionMin[1] {
-			statefulSet.Spec.Template.Spec.InitContainers = []v1.Container{
-				v1.Container{
-					Name:            "sysctl",
-					Image:           "busybox",
-					ImagePullPolicy: "IfNotPresent",
-					Command: []string{
-						"sysctl", "-w", "vm.max_map_count=262144",
-					},
-					SecurityContext: &v1.SecurityContext{
-						Privileged: &[]bool{true}[0],
-					},
-				},
-			}
 		}
 
 		if storageClass != "default" {
